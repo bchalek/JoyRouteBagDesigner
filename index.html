@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JoyRoute Bag Designer</title>
+  <link rel="stylesheet" href="styles/main.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "fabric": "https://cdn.jsdelivr.net/npm/fabric@6.4.3/dist/fabric.min.mjs",
+      "pdf-lib": "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm"
+    }
+  }
+  </script>
+</head>
+<body>
+
+<!-- ─── Toolbar ─────────────────────────────────────────────────────────────── -->
+<header id="toolbar">
+  <div class="logo">🎁 JoyRoute Bag Designer</div>
+
+  <div class="toolbar-sep"></div>
+
+  <div class="toolbar-group">
+    <button id="btn-new" title="Nowy projekt">Nowy</button>
+    <button id="btn-open" title="Otwórz plik .bagdesign">Otwórz</button>
+    <button id="btn-save" title="Zapisz projekt jako JSON">💾 Zapisz</button>
+  </div>
+
+  <div class="toolbar-sep"></div>
+
+  <!-- View toggle -->
+  <div class="toolbar-group">
+    <button data-view="flat" class="active" title="Widok rozniętego szablonu">Widok rozniętego</button>
+    <button data-view="panels" title="Edycja paneli (Fabric.js)">Edytor paneli</button>
+    <button data-view="imposition" title="Podgląd imposycji">Imposycja</button>
+  </div>
+
+  <div class="toolbar-sep"></div>
+
+  <div class="toolbar-group right">
+    <button id="btn-export-svg" title="Eksportuj SVG">SVG</button>
+    <button id="btn-export-png" title="Eksportuj PNG 300DPI">PNG</button>
+    <button id="btn-export-pdf" class="btn-primary" title="Eksportuj PDF do drukarni">📄 Eksport PDF</button>
+  </div>
+</header>
+
+<!-- ─── Main 3-column layout ─────────────────────────────────────────────────── -->
+<div id="main-layout">
+
+  <!-- ─── LEFT PANEL ─────────────────────────────────────────────────────────── -->
+  <aside id="left-panel">
+
+    <!-- Bag type -->
+    <div class="panel-section">
+      <h3>Typ torebki</h3>
+      <select id="bag-type">
+        <option value="classic">Klasyczna (shopper)</option>
+        <option value="bottle">Na butelkę</option>
+      </select>
+    </div>
+
+    <!-- Dimensions -->
+    <div class="panel-section" id="dimensions-section">
+      <h3>Wymiary torebki</h3>
+      <div class="input-group">
+        <label>Szerokość (W) <span class="unit">mm</span></label>
+        <input type="number" id="dim-w" value="120" min="50" max="600" step="1">
+      </div>
+      <div class="input-group">
+        <label>Wysokość (H) <span class="unit">mm</span></label>
+        <input type="number" id="dim-h" value="185" min="50" max="800" step="1">
+      </div>
+      <div class="input-group">
+        <label>Głębokość (G) <span class="unit">mm</span></label>
+        <input type="number" id="dim-d" value="65" min="20" max="300" step="1">
+      </div>
+      <div id="dim-validation" class="validation-msg"></div>
+      <div class="btn-row">
+        <button id="btn-fit-bag" title="Oblicz max wymiary torebki dla wybranego papieru">↔ Dopasuj do papieru</button>
+      </div>
+    </div>
+
+    <!-- Paper -->
+    <div class="panel-section">
+      <h3>Format papieru</h3>
+      <div class="input-group">
+        <label>Format</label>
+        <select id="paper-size"></select>
+      </div>
+      <div class="toggle-group">
+        <button data-orient="portrait" class="active">Pionowy</button>
+        <button data-orient="landscape">Poziomy</button>
+      </div>
+      <div id="custom-paper" class="hidden">
+        <div class="input-row">
+          <div class="input-group">
+            <label>Szer. <span class="unit">mm</span></label>
+            <input type="number" id="paper-cw" value="420" min="50">
+          </div>
+          <div class="input-group">
+            <label>Wys. <span class="unit">mm</span></label>
+            <input type="number" id="paper-ch" value="594" min="50">
+          </div>
+        </div>
+      </div>
+      <div id="paper-info" class="info-box"></div>
+    </div>
+
+    <!-- Print settings -->
+    <div class="panel-section">
+      <h3>Ustawienia druku</h3>
+      <div class="input-group">
+        <label>Spad (bleed) <span class="unit">mm</span></label>
+        <input type="number" id="bleed" value="3" min="0" max="10" step="0.5">
+      </div>
+      <label class="checkbox-label">
+        <input type="checkbox" id="crop-marks" checked> Znaczniki cięcia
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" id="fold-marks" checked> Linie bigowania
+      </label>
+    </div>
+
+  </aside>
+
+  <!-- ─── CENTER CANVAS ────────────────────────────────────────────────────── -->
+  <main id="canvas-area">
+
+    <!-- Canvas toolbar (tools shown based on view) -->
+    <div id="canvas-toolbar">
+      <!-- Flat view: zoom controls -->
+      <div id="flat-toolbar">
+        <button id="btn-zoom-in"  title="Powiększ">+</button>
+        <button id="btn-zoom-out" title="Pomniejsz">−</button>
+        <button id="btn-zoom-fit" title="Dopasuj do okna">↔ Dopasuj</button>
+        <span id="zoom-label">100%</span>
+      </div>
+      <!-- Panel editor tools (hidden when flat view) -->
+      <div id="editor-toolbar" class="hidden">
+        <button id="btn-undo" title="Cofnij (Ctrl+Z)">↩</button>
+        <button id="btn-redo" title="Ponów (Ctrl+Y)">↪</button>
+        <div class="toolbar-sep"></div>
+        <button id="btn-tool-select" class="active" title="Zaznaczanie">↖</button>
+        <button id="btn-tool-text"   title="Tekst (T)">T</button>
+        <button id="btn-tool-rect"   title="Prostokąt">□</button>
+        <button id="btn-tool-circle" title="Koło">○</button>
+        <button id="btn-tool-image"  title="Obraz">🖼</button>
+        <div class="toolbar-sep"></div>
+        <button id="btn-add-bg" title="Tło panelu">🎨 Tło</button>
+        <button id="btn-bring-front" title="Na wierzch">↑↑</button>
+        <button id="btn-send-back"   title="Na spód">↓↓</button>
+      </div>
+    </div>
+
+    <div id="canvas-container">
+
+      <!-- Flat view: SVG template -->
+      <div id="flat-view">
+        <svg id="flat-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+
+      <!-- Panel editor -->
+      <div id="panel-editor" class="hidden">
+        <div id="panel-tabs">
+          <button class="panel-tab active" data-panel="front">Przód</button>
+          <button class="panel-tab" data-panel="back">Tył</button>
+          <button class="panel-tab" data-panel="left">Bok L</button>
+          <button class="panel-tab" data-panel="right">Bok P</button>
+          <button class="panel-tab" data-panel="top">Klapa górna</button>
+        </div>
+        <div id="fabric-canvas-wrap">
+          <canvas id="fabric-canvas"></canvas>
+        </div>
+      </div>
+
+      <!-- Imposition view -->
+      <div id="imposition-view" class="hidden">
+        <svg id="imposition-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ─── RIGHT PANEL ──────────────────────────────────────────────────────── -->
+  <aside id="right-panel">
+
+    <!-- Layers -->
+    <div class="panel-section" id="layers-section">
+      <h3>Warstwy</h3>
+      <div class="layers-toolbar">
+        <button id="btn-add-text"   title="Dodaj tekst">T+</button>
+        <button id="btn-add-image"  title="Dodaj obraz">🖼</button>
+        <button id="btn-add-rect"   title="Dodaj prostokąt">□</button>
+        <button id="btn-add-circle" title="Dodaj koło">○</button>
+        <button id="btn-add-bg"     title="Ustaw tło panelu">🎨</button>
+        <button id="btn-delete-layer" title="Usuń zaznaczony">🗑</button>
+      </div>
+      <div id="layers-list"></div>
+    </div>
+
+    <!-- Object properties -->
+    <div class="panel-section" id="properties-section">
+      <h3>Właściwości</h3>
+      <div id="properties-content">
+        <div style="color: var(--text-muted); font-size:11px;">Zaznacz obiekt na canvasie.</div>
+      </div>
+    </div>
+
+    <!-- Imposition -->
+    <div class="panel-section" id="imposition-section">
+      <h3>Imposycja</h3>
+      <div id="imposition-info"></div>
+      <div class="input-group">
+        <label>Margines <span class="unit">mm</span></label>
+        <input type="number" id="imp-margin" value="10" min="0" max="50" step="1">
+      </div>
+      <div class="input-group">
+        <label>Odstęp między <span class="unit">mm</span></label>
+        <input type="number" id="imp-gutter" value="5" min="0" max="50" step="1">
+      </div>
+      <div class="btn-row">
+        <button id="btn-imposition-preview" class="btn-primary">Podgląd układu</button>
+      </div>
+    </div>
+
+  </aside>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
