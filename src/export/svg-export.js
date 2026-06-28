@@ -23,6 +23,7 @@ export function exportSVG(geo, appState) {
 
   const root = document.createElementNS(NS, 'svg');
   root.setAttribute('xmlns', NS);
+  root.setAttribute('xmlns:inkscape', 'http://www.inkscape.org/namespaces/inkscape');
   root.setAttribute('version', '1.1');
   root.setAttribute('width', `${totalW}mm`);
   root.setAttribute('height', `${totalH}mm`);

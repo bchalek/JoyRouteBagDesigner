@@ -25,6 +25,9 @@ export function exportPNG(geo, appState) {
   const svgClone = svg.cloneNode(true);
   svgClone.setAttribute('width', `${vb.width}mm`);
   svgClone.setAttribute('height', `${vb.height}mm`);
+  // Reset pan/zoom so the full paper view is exported, not the current viewport
+  const panGroup = svgClone.querySelector('#pan-zoom-group');
+  if (panGroup) panGroup.setAttribute('transform', 'translate(0,0) scale(1)');
 
   const svgStr = new XMLSerializer().serializeToString(svgClone);
   const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });

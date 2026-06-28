@@ -127,12 +127,14 @@ async function drawBagAtPosition(page, pdfDoc, geo, pos, panelImages, bleed, app
     }
   }
 
-  // Cut line (outer boundary)
-  drawRect(page,
-    bX / MM_TO_PT, (page.getHeight() - bY) / MM_TO_PT - geo.totalH,
-    geo.totalW, geo.totalH,
-    { color: rgb(0.1, 0.2, 0.9), thickness: 0.5, offsetPt: { x: bX, y: bY } }
-  );
+  // Cut line (use exact cut path when available, else bounding rect)
+  if (geo.cutPath) {
+    drawSVGPathLines(page, geo.cutPath, bX, bY, geo.totalH,
+      { color: rgb(0.1, 0.2, 0.9), thickness: 0.5 });
+  } else {
+    drawRect(page, 0, 0, geo.totalW, geo.totalH,
+      { color: rgb(0.1, 0.2, 0.9), thickness: 0.5, offsetPt: { x: bX, y: bY } });
+  }
 
   // Handle holes
   for (const h of geo.handles) {
@@ -190,6 +192,29 @@ function dataUrlToUint8Array(dataUrl) {
 // ─── PDF drawing helpers ──────────────────────────────────────────────────────
 function drawLine(page, x1, y1, x2, y2, { color, thickness }) {
   page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, color, thickness });
+}
+
+// Parses SVG M/L path commands (in mm) and draws each segment as a PDF line.
+// Handles the Y-axis flip: SVG y-down → PDF y-up.
+function drawSVGPathLines(page, svgPath, bX, bY, totalH, { color, thickness }) {
+  const tokens = svgPath.match(/[ML][^MLZ]*/gi) || [];
+  let prevPx = 0, prevPy = 0, firstPx = 0, firstPy = 0, started = false;
+  for (const tok of tokens) {
+    const type = tok[0].toUpperCase();
+    const nums = tok.slice(1).trim().split(/[\s,]+/).map(Number).filter(n => !isNaN(n));
+    if (nums.length < 2) continue;
+    const px = bX + nums[0] * MM_TO_PT;
+    const py = bY + (totalH - nums[1]) * MM_TO_PT;
+    if (type === 'M') {
+      firstPx = px; firstPy = py; prevPx = px; prevPy = py; started = true;
+    } else if (type === 'L' && started) {
+      drawLine(page, prevPx, prevPy, px, py, { color, thickness });
+      prevPx = px; prevPy = py;
+    }
+  }
+  if (started && (Math.abs(prevPx - firstPx) > 0.1 || Math.abs(prevPy - firstPy) > 0.1)) {
+    drawLine(page, prevPx, prevPy, firstPx, firstPy, { color, thickness });
+  }
 }
 
 function drawRect(page, xMm, yMm, wMm, hMm, { color, thickness, offsetPt }) {
