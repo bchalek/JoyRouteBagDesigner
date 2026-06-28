@@ -15,7 +15,18 @@ export function exportPNG(geo, appState) {
   const svg = document.getElementById('flat-svg');
   if (!svg) { toast('Brak podglądu SVG.', 'error'); return; }
 
-  const svgStr = new XMLSerializer().serializeToString(svg);
+  const vb = svg.viewBox.baseVal;
+  if (!vb || vb.width === 0) {
+    toast('Przejdź do widoku rozniętego przed eksportem PNG.', 'error');
+    return;
+  }
+
+  // Clone SVG and set explicit mm dimensions so Image.naturalWidth/Height are correct
+  const svgClone = svg.cloneNode(true);
+  svgClone.setAttribute('width', `${vb.width}mm`);
+  svgClone.setAttribute('height', `${vb.height}mm`);
+
+  const svgStr = new XMLSerializer().serializeToString(svgClone);
   const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
 

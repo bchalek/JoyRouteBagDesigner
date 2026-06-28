@@ -65,13 +65,19 @@ export function exportSVG(geo, appState) {
     bag.appendChild(layerFolds);
   }
 
-  // Layer: Cut line
+  // Layer: Cut line (use exact cut path if available, else bounding rect)
   const layerCut = el('g', { id: 'layer-cut', 'inkscape:label': 'Cięcie' });
-  layerCut.appendChild(el('rect', {
-    x: geo.coords.xGlueL, y: geo.coords.yTop,
-    width: geo.totalW, height: geo.totalH,
-    fill: 'none', stroke: '#0033ff', 'stroke-width': '0.5',
-  }));
+  if (geo.cutPath) {
+    layerCut.appendChild(el('path', {
+      d: geo.cutPath, fill: 'none', stroke: '#0033ff', 'stroke-width': '0.5',
+    }));
+  } else {
+    layerCut.appendChild(el('rect', {
+      x: geo.coords.xGlueL, y: geo.coords.yTop,
+      width: geo.totalW, height: geo.totalH,
+      fill: 'none', stroke: '#0033ff', 'stroke-width': '0.5',
+    }));
+  }
   bag.appendChild(layerCut);
 
   // Layer: Handle holes

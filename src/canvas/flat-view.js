@@ -32,6 +32,9 @@ export function renderFlatView(geo, paper, appState) {
   svg = document.getElementById('flat-svg');
   if (!svg) return;
 
+  // Guard against zoom being 0 (can happen when SVG was hidden during fitToWindow)
+  if (!zoom || zoom <= 0 || !isFinite(zoom)) { zoom = 1; panX = 0; panY = 0; }
+
   // Determine viewBox: show paper + some padding
   const PAD = 20; // mm padding around paper
   const vbW = paper.w + PAD * 2;
