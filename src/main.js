@@ -1,5 +1,6 @@
 import { computeClassicBag, bagNeededPaper as classicNeeded, fitBagToPaper as classicFit } from './geometry/classic-bag.js';
 import { computeBottleBag, bagNeededPaper as bottleNeeded, fitBagToPaper as bottleFit } from './geometry/bottle-bag.js';
+import { computeShoppingBag, bagNeededPaper as shoppingNeeded, fitBagToPaper as shoppingFit } from './geometry/shopping-bag.js';
 import { PAPER_SIZES, PAPER_ORDER, findSmallestFittingPaper, paperLabel } from './geometry/paper-sizes.js';
 import { state, set, effectivePaper, currentGeometry } from './state.js';
 import { renderFlatView } from './canvas/flat-view.js';
@@ -12,7 +13,7 @@ import { exportPNG } from './export/png-export.js';
 import { saveProject, loadProject } from './project/io.js';
 
 // Expose geometry fns globally for state.js
-window.__geo = { PAPER_SIZES, computeClassicBag, computeBottleBag };
+window.__geo = { PAPER_SIZES, computeClassicBag, computeBottleBag, computeShoppingBag };
 
 // ─── Boot ────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -89,7 +90,9 @@ function bindDimensionInputs() {
     const paper = effectivePaper();
     const fit = state.bagType === 'bottle'
       ? bottleFit(paper.w, paper.h, state.bleed)
-      : classicFit(paper.w, paper.h, state.bleed);
+      : state.bagType === 'shopping'
+        ? shoppingFit(paper.w, paper.h, state.bleed)
+        : classicFit(paper.w, paper.h, state.bleed);
     if (!fit) return;
     set({ dimensions: fit });
     document.getElementById('dim-w').value = fit.W;
@@ -292,7 +295,10 @@ export function refreshAll() {
   // Validate dimensions
   const valEl = document.getElementById('dim-validation');
   if (!geo.valid) {
-    valEl.textContent = `⚠ Szerokość musi być ≥ 1.5 × Głębokość (min ${Math.ceil(geo.D * 1.5)}mm)`;
+    const msg = state.bagType === 'classic' || state.bagType === 'bottle'
+      ? `⚠ Szerokość musi być ≥ 1.5 × Głębokość (min ${Math.ceil(geo.D * 1.5)}mm)`
+      : '⚠ Wymiary muszą być większe od zera';
+    valEl.textContent = msg;
     valEl.classList.add('error');
   } else {
     valEl.textContent = '';
@@ -300,9 +306,12 @@ export function refreshAll() {
   }
 
   // Paper info — built with DOM methods (no innerHTML with interpolated strings)
-  const needed = state.bagType === 'bottle'
-    ? bottleNeeded(state.dimensions.W, state.dimensions.H, state.dimensions.D, state.bleed)
-    : classicNeeded(state.dimensions.W, state.dimensions.H, state.dimensions.D, state.bleed);
+  const neededFn = state.bagType === 'bottle'
+    ? bottleNeeded
+    : state.bagType === 'shopping'
+      ? shoppingNeeded
+      : classicNeeded;
+  const needed = neededFn(state.dimensions.W, state.dimensions.H, state.dimensions.D, state.bleed);
   const paper = effectivePaper();
   const fits = paper.w >= needed.w && paper.h >= needed.h;
   const suggestion = findSmallestFittingPaper(needed.w, needed.h);

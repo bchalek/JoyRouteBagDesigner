@@ -6,7 +6,7 @@
 const listeners = {};
 
 export const state = {
-  bagType: 'classic',           // 'classic' | 'bottle'
+  bagType: 'classic',           // 'classic' | 'shopping' | 'bottle'
   dimensions: { W: 120, H: 185, D: 65 },
   paperName: 'A3',
   paperOrientation: 'portrait', // 'portrait' | 'landscape'
@@ -84,6 +84,8 @@ export function currentGeometry() {
   if (!__geo) return null;
   const fn = state.bagType === 'bottle'
     ? __geo.computeBottleBag
-    : __geo.computeClassicBag;
+    : state.bagType === 'shopping'
+      ? __geo.computeShoppingBag
+      : __geo.computeClassicBag;
   return fn(W, H, D, { bleed: state.bleed });
 }

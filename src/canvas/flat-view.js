@@ -131,11 +131,10 @@ function renderPanels(parent, geo, appState) {
 }
 
 function findPanelForPath(key, geo) {
-  if (key === 'front') return 'front';
-  if (key === 'back')  return 'back';
-  if (key === 'left')  return 'left';
-  if (key === 'right') return 'right';
-  if (key === 'frontTop' || key === 'backTop') return 'top';
+  // Direct panel name match
+  if (geo.panelRects[key]) return key;
+  // Top flap maps to 'top' panel only when it exists in panelRects
+  if ((key === 'frontTop' || key === 'backTop') && geo.panelRects['top']) return 'top';
   return null;
 }
 

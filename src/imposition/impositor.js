@@ -17,8 +17,9 @@
  * @returns {{ cols, rows, count, rotate, positions, efficiency } | null}
  */
 export function computeImposition(paperW, paperH, templateW, templateH, margin = 10, gutter = 5, bleed = 0) {
-  const avW = paperW - 2 * (margin + bleed);
-  const avH = paperH - 2 * (margin + bleed);
+  // bleed is already included in templateW/templateH — only subtract margin
+  const avW = paperW - 2 * margin;
+  const avH = paperH - 2 * margin;
   if (avW <= 0 || avH <= 0) return null;
 
   const layout0  = tryLayout(avW, avH, templateW,  templateH, gutter, false);
@@ -32,8 +33,8 @@ export function computeImposition(paperW, paperH, templateW, templateH, margin =
 
   // Generate actual positions
   const positions = [];
-  const startX = margin + bleed;
-  const startY = margin + bleed;
+  const startX = margin;
+  const startY = margin;
   const stepW = best.rotate ? templateH : templateW;
   const stepH = best.rotate ? templateW : templateH;
   for (let row = 0; row < best.rows; row++) {
