@@ -26,9 +26,25 @@ document.addEventListener('DOMContentLoaded', () => {
   bindImpositionControls();
   bindLayerTools();
 
+  // Listen for panel clicks from flat view
+  document.addEventListener('bag:open-panel', e => {
+    const panel = e.detail.panel;
+    set({ activePanel: panel, view: 'panels' });
+    document.querySelectorAll('[data-view]').forEach(b =>
+      b.classList.toggle('active', b.dataset.view === 'panels'));
+    document.getElementById('flat-view').classList.add('hidden');
+    document.getElementById('panel-editor').classList.remove('hidden');
+    document.getElementById('imposition-view').classList.add('hidden');
+    document.getElementById('flat-toolbar').classList.add('hidden');
+    document.getElementById('editor-toolbar').classList.remove('hidden');
+    document.querySelectorAll('.panel-tab').forEach(b =>
+      b.classList.toggle('active', b.dataset.panel === panel));
+    switchPanel(panel, currentGeometry());
+  });
+
   // Initial render
   refreshAll();
-  initPanelEditor('fabric-canvas');
+  initPanelEditor();
   updateImpositionInfo();
 });
 
@@ -123,6 +139,9 @@ function bindViewToggle() {
       document.getElementById('flat-view').classList.toggle('hidden', v !== 'flat');
       document.getElementById('panel-editor').classList.toggle('hidden', v !== 'panels');
       document.getElementById('imposition-view').classList.toggle('hidden', v !== 'imposition');
+      document.getElementById('flat-toolbar').classList.toggle('hidden', v !== 'flat');
+      document.getElementById('editor-toolbar').classList.toggle('hidden', v !== 'panels');
+      if (v === 'panels') switchPanel(state.activePanel, currentGeometry());
       if (v === 'imposition') renderImposition();
     });
   });

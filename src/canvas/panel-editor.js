@@ -1,38 +1,37 @@
 /**
- * Fabric.js panel editor.
- * Manages one canvas per panel (front/back/left/right/top).
- * Panel data is stored as Fabric.js JSON in state.panelData.
+ * Fabric.js panel editor — Fabric.js v6 compatible.
+ *
+ * Fabric.js 6 breaking changes used here:
+ *  - Named exports: Canvas, IText, FabricImage, Rect, Circle
+ *  - loadFromJSON returns Promise (no callback)
+ *  - bringToFront/sendToBack → canvas.bringObjectToFront/sendObjectToBack
+ *  - setBackgroundImage → FabricImage.fromURL + canvas.set()
  */
 
-import { fabric } from 'fabric';
+import { Canvas, IText, FabricImage, Rect, Circle } from 'fabric';
 import { state, set } from '../state.js';
 import { toast } from '../ui/toast.js';
 import { renderLayerList } from './layer-manager.js';
 import { renderProperties } from '../ui/properties-panel.js';
 
-/** @type {fabric.Canvas} */
+/** @type {Canvas} */
 let canvas = null;
 let historyStack = [];
 let historyPointer = -1;
 let ignoreHistory = false;
 
-const MM_TO_PX = 3.7795; // 96 DPI: 1mm = 96/25.4 px
-const EDITOR_SCALE = 2;  // Render at 2× for quality (192 DPI display)
+const MM_TO_PX = 3.7795;
+const EDITOR_SCALE = 2;  // 192 DPI display quality
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
-export function initPanelEditor(canvasId) {
-  // Fabric.js canvas is created lazily on first panel switch
-  // so we know the panel dimensions.
+export function initPanelEditor() {
   bindEditorToolbar();
   bindKeyboard();
 }
 
-export function switchPanel(panelName, geo) {
+export async function switchPanel(panelName, geo) {
   if (!geo) return;
-  const wrap = document.getElementById('fabric-canvas-wrap');
-  if (!wrap) return;
 
-  // Save current panel before switching
   if (canvas) saveCurrentPanel();
 
   const rect = panelRect(panelName, geo);
@@ -41,7 +40,6 @@ export function switchPanel(panelName, geo) {
   const pxW = Math.round(rect.w * MM_TO_PX * EDITOR_SCALE);
   const pxH = Math.round(rect.h * MM_TO_PX * EDITOR_SCALE);
 
-  // Destroy previous canvas if dimensions changed
   if (canvas) { canvas.dispose(); canvas = null; }
 
   const canvasEl = document.getElementById('fabric-canvas');
@@ -50,39 +48,33 @@ export function switchPanel(panelName, geo) {
   canvasEl.style.width  = `${pxW / EDITOR_SCALE}px`;
   canvasEl.style.height = `${pxH / EDITOR_SCALE}px`;
 
-  canvas = new fabric.Canvas('fabric-canvas', {
+  canvas = new Canvas('fabric-canvas', {
     width: pxW,
     height: pxH,
     backgroundColor: '#ffffff',
     selection: true,
   });
 
-  // Load saved panel data if it exists
   const saved = state.panelData[panelName];
   if (saved) {
-    canvas.loadFromJSON(saved, () => {
-      canvas.renderAll();
-      refreshLayerList();
-    });
+    await canvas.loadFromJSON(saved);
+    canvas.renderAll();
   } else {
     canvas.renderAll();
-    refreshLayerList();
   }
+  refreshLayerList();
 
-  // History: save initial state
   historyStack = [];
   historyPointer = -1;
   pushHistory();
 
-  // Events
-  canvas.on('object:added',   onCanvasChange);
-  canvas.on('object:removed', onCanvasChange);
+  canvas.on('object:added',    onCanvasChange);
+  canvas.on('object:removed',  onCanvasChange);
   canvas.on('object:modified', onCanvasChange);
   canvas.on('selection:created',  refreshUI);
   canvas.on('selection:updated',  refreshUI);
   canvas.on('selection:cleared',  refreshUI);
 
-  // Expose for toolbar buttons in main.js
   window.__editor = {
     addText:        () => addText(canvas, pxW, pxH),
     addImage:       (file) => addImage(canvas, file),
@@ -90,10 +82,16 @@ export function switchPanel(panelName, geo) {
     addCircle:      () => addCircle(canvas),
     deleteSelected: () => deleteSelected(canvas),
     setBackground:  () => showBgPicker(canvas),
-    bringForward:   () => { canvas.getActiveObject()?.bringToFront(); canvas.renderAll(); refreshLayerList(); },
-    sendBackward:   () => { canvas.getActiveObject()?.sendToBack(); canvas.renderAll(); refreshLayerList(); },
+    bringForward:   () => {
+      const o = canvas.getActiveObject();
+      if (o) { canvas.bringObjectToFront(o); canvas.renderAll(); refreshLayerList(); }
+    },
+    sendBackward:   () => {
+      const o = canvas.getActiveObject();
+      if (o) { canvas.sendObjectToBack(o); canvas.renderAll(); refreshLayerList(); }
+    },
     undo, redo,
-    getCanvas:      () => canvas,
+    getCanvas: () => canvas,
   };
 }
 
@@ -123,18 +121,17 @@ function redo() {
   restoreHistory(historyStack[historyPointer]);
 }
 
-function restoreHistory(json) {
+async function restoreHistory(json) {
   ignoreHistory = true;
-  canvas.loadFromJSON(json, () => {
-    canvas.renderAll();
-    refreshLayerList();
-    ignoreHistory = false;
-  });
+  await canvas.loadFromJSON(json);
+  canvas.renderAll();
+  refreshLayerList();
+  ignoreHistory = false;
 }
 
 // ─── Object helpers ───────────────────────────────────────────────────────────
 function addText(canvas, pxW, pxH) {
-  const t = new fabric.IText('Wpisz tekst', {
+  const t = new IText('Wpisz tekst', {
     left: pxW / 2,
     top:  pxH / 2,
     originX: 'center',
@@ -155,28 +152,20 @@ function addImage(canvas, file) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = e => {
-    const img = new Image();
-    img.onload = () => {
-      const fi = new fabric.FabricImage(img, {
-        left: 50 * EDITOR_SCALE,
-        top:  50 * EDITOR_SCALE,
-        id:   uid(),
-        name: file.name.replace(/\.[^.]+$/, ''),
-      });
-      // Scale to fit within 40% of canvas width
+    FabricImage.fromURL(e.target.result).then(fi => {
+      fi.set({ left: 50 * EDITOR_SCALE, top: 50 * EDITOR_SCALE, id: uid(), name: file.name.replace(/\.[^.]+$/, '') });
       const maxW = canvas.width * 0.4;
       if (fi.width > maxW) fi.scaleToWidth(maxW);
       canvas.add(fi);
       canvas.setActiveObject(fi);
       canvas.renderAll();
-    };
-    img.src = e.target.result;
+    });
   };
   reader.readAsDataURL(file);
 }
 
 function addRect(canvas) {
-  const r = new fabric.Rect({
+  const r = new Rect({
     left:   80 * EDITOR_SCALE,
     top:    60 * EDITOR_SCALE,
     width:  60 * EDITOR_SCALE,
@@ -195,7 +184,7 @@ function addRect(canvas) {
 }
 
 function addCircle(canvas) {
-  const c = new fabric.Circle({
+  const c = new Circle({
     left:   80 * EDITOR_SCALE,
     top:    60 * EDITOR_SCALE,
     radius: 30 * EDITOR_SCALE,
@@ -213,7 +202,8 @@ function addCircle(canvas) {
 function deleteSelected(canvas) {
   const obj = canvas.getActiveObject();
   if (!obj) return;
-  if (obj.type === 'activeselection') {
+  // In Fabric.js 6, multi-selection type is 'ActiveSelection'
+  if (obj.type === 'ActiveSelection' || obj.type === 'activeselection') {
     obj.forEachObject(o => canvas.remove(o));
     canvas.discardActiveObject();
   } else {
@@ -233,7 +223,6 @@ function showBgPicker(canvas) {
   title.textContent = 'Tło panelu';
   box.appendChild(title);
 
-  // Color option
   const colorRow = document.createElement('div');
   colorRow.className = 'input-group';
   const colorLabel = document.createElement('label');
@@ -245,7 +234,6 @@ function showBgPicker(canvas) {
   colorRow.appendChild(colorInput);
   box.appendChild(colorRow);
 
-  // Image option
   const imgRow = document.createElement('div');
   imgRow.className = 'input-group';
   const imgLabel = document.createElement('label');
@@ -257,18 +245,21 @@ function showBgPicker(canvas) {
   imgRow.appendChild(imgInput);
   box.appendChild(imgRow);
 
-  // Buttons
   const btnRow = document.createElement('div');
   btnRow.className = 'btn-row';
 
   const btnOk = document.createElement('button');
   btnOk.className = 'btn-primary';
   btnOk.textContent = 'Zastosuj';
-  btnOk.addEventListener('click', () => {
+  btnOk.addEventListener('click', async () => {
     if (imgInput.files.length > 0) {
       const reader = new FileReader();
-      reader.onload = e => {
-        canvas.setBackgroundImage(e.target.result, () => canvas.renderAll());
+      reader.onload = async e => {
+        const img = await FabricImage.fromURL(e.target.result);
+        img.scaleToWidth(canvas.width);
+        img.scaleToHeight(canvas.height);
+        canvas.backgroundImage = img;
+        canvas.renderAll();
       };
       reader.readAsDataURL(imgInput.files[0]);
     } else {
@@ -300,14 +291,13 @@ function onCanvasChange() {
 
 function refreshUI() {
   refreshLayerList();
-  const obj = canvas?.getActiveObject();
-  renderProperties(obj);
+  renderProperties(canvas?.getActiveObject() ?? null);
 }
 
 function refreshLayerList() {
   if (!canvas) return;
   renderLayerList(canvas.getObjects(), {
-    onSelect:  (obj) => { canvas.setActiveObject(obj); canvas.renderAll(); },
+    onSelect: (obj) => { canvas.setActiveObject(obj); canvas.renderAll(); },
     onToggleVis: (obj) => {
       obj.visible = !obj.visible;
       canvas.renderAll();
@@ -332,9 +322,6 @@ function bindEditorToolbar() {
     () => window.__editor?.bringForward());
   document.getElementById('btn-send-back')?.addEventListener('click',
     () => window.__editor?.sendBackward());
-  document.getElementById('btn-tool-select')?.addEventListener('click', () => {
-    if (canvas) canvas.isDrawingMode = false;
-  });
 }
 
 function bindKeyboard() {
@@ -344,7 +331,8 @@ function bindKeyboard() {
     if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
     if (e.key === 'Delete' || e.key === 'Backspace') {
       const active = canvas.getActiveObject();
-      if (active && active.type !== 'i-text') deleteSelected(canvas);
+      // Don't delete when editing text
+      if (active && active.type !== 'i-text' && active.type !== 'IText') deleteSelected(canvas);
     }
   });
 }

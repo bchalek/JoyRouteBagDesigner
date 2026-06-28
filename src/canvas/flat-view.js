@@ -140,19 +140,8 @@ function findPanelForPath(key, geo) {
 }
 
 function onPanelClick(panel) {
-  // Switch to panel editor view for this panel
-  toast(`Panel: ${panel} — przejdź do Edytora paneli`);
-  set({ activePanel: panel, view: 'panels' });
-  document.querySelectorAll('[data-view]').forEach(b =>
-    b.classList.toggle('active', b.dataset.view === 'panels'));
-  document.getElementById('flat-view').classList.add('hidden');
-  document.getElementById('panel-editor').classList.remove('hidden');
-  document.getElementById('imposition-view').classList.add('hidden');
-  document.getElementById('editor-toolbar').classList.remove('hidden');
-  document.getElementById('flat-toolbar').classList.add('hidden');
-  document.querySelectorAll('.panel-tab').forEach(b =>
-    b.classList.toggle('active', b.dataset.panel === panel));
-  import('./panel-editor.js').then(m => m.switchPanel(panel, window.__currentGeo));
+  // Dispatch a custom event — main.js handles the view switch
+  document.dispatchEvent(new CustomEvent('bag:open-panel', { detail: { panel } }));
 }
 
 // ─── Fold lines ───────────────────────────────────────────────────────────────

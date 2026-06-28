@@ -156,27 +156,22 @@ async function renderPanelImages(panelData) {
     try {
       // Create off-screen canvas to render Fabric.js JSON
       // We re-import fabric dynamically to avoid circular dep issues at module load
-      const { fabric } = await import('fabric');
+      const { Canvas } = await import('fabric');
       const tempEl = document.createElement('canvas');
       tempEl.id = `__export_canvas_${panelName}`;
       tempEl.style.display = 'none';
       document.body.appendChild(tempEl);
 
-      await new Promise(resolve => {
-        const fc = new fabric.Canvas(tempEl.id, {
-          width: json.width ?? 400,
-          height: json.height ?? 400,
-        });
-        fc.loadFromJSON(json, () => {
-          fc.renderAll();
-          const dataUrl = fc.toDataURL({ format: 'png', multiplier: RENDER_SCALE });
-          // dataUrl is base64 PNG → convert to Uint8Array for pdf-lib
-          result[panelName] = dataUrlToUint8Array(dataUrl);
-          fc.dispose();
-          tempEl.remove();
-          resolve();
-        });
+      const fc = new Canvas(tempEl.id, {
+        width: json.width ?? 400,
+        height: json.height ?? 400,
       });
+      await fc.loadFromJSON(json);
+      fc.renderAll();
+      const dataUrl = fc.toDataURL({ format: 'png', multiplier: RENDER_SCALE });
+      result[panelName] = dataUrlToUint8Array(dataUrl);
+      fc.dispose();
+      tempEl.remove();
     } catch (e) {
       // Skip panels that fail to render
     }
