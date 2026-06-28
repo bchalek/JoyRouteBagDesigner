@@ -1,7 +1,7 @@
 import { computeClassicBag, bagNeededPaper as classicNeeded, fitBagToPaper as classicFit } from './geometry/classic-bag.js';
 import { computeBottleBag, bagNeededPaper as bottleNeeded, fitBagToPaper as bottleFit } from './geometry/bottle-bag.js';
 import { PAPER_SIZES, PAPER_ORDER, findSmallestFittingPaper, paperLabel } from './geometry/paper-sizes.js';
-import { state, set, on, effectivePaper, currentGeometry } from './state.js';
+import { state, set, effectivePaper, currentGeometry } from './state.js';
 import { renderFlatView } from './canvas/flat-view.js';
 import { initPanelEditor, switchPanel, saveCurrentPanel } from './canvas/panel-editor.js';
 import { renderImposition } from './canvas/imposition-view.js';
@@ -17,6 +17,7 @@ window.__geo = { PAPER_SIZES, computeClassicBag, computeBottleBag };
 // ─── Boot ────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   populatePaperSelect();
+  bindBagType();
   bindDimensionInputs();
   bindPaperControls();
   bindViewToggle();
@@ -34,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // ─── Paper select population ──────────────────────────────────────────────────
 function populatePaperSelect() {
   const sel = document.getElementById('paper-size');
-  sel.innerHTML = '';
+  sel.replaceChildren();
   PAPER_ORDER.forEach(name => {
     const s = PAPER_SIZES[name];
     const opt = document.createElement('option');
@@ -47,6 +48,14 @@ function populatePaperSelect() {
   custom.textContent = 'Niestandardowy…';
   sel.appendChild(custom);
   sel.value = state.paperName;
+}
+
+// ─── Bag type ────────────────────────────────────────────────────────────────
+function bindBagType() {
+  document.getElementById('bag-type').addEventListener('change', e => {
+    set({ bagType: e.target.value });
+    refreshAll();
+  });
 }
 
 // ─── Dimension inputs ─────────────────────────────────────────────────────────
