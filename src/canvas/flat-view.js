@@ -126,10 +126,38 @@ function renderPanels(parent, geo, appState) {
     });
     if (isMain) {
       p.addEventListener('click', () => onPanelClick(panel));
-      p.addEventListener('mouseenter', () => p.setAttribute('fill', '#eeeeff'));
-      p.addEventListener('mouseleave', () => p.setAttribute('fill', '#ffffff'));
+      p.addEventListener('mouseenter', () => {
+        if (!appState.panelPreviews?.[panel]) p.setAttribute('fill', '#eeeeff');
+      });
+      p.addEventListener('mouseleave', () => {
+        if (!appState.panelPreviews?.[panel]) p.setAttribute('fill', '#ffffff');
+      });
     }
     parent.appendChild(p);
+  }
+
+  // Overlay panel preview images from the panel editor
+  if (appState.panelPreviews) {
+    for (const [panelId, rect] of Object.entries(geo.panelRects)) {
+      const url = appState.panelPreviews[panelId];
+      if (!url) continue;
+      const img = createEl('image', {
+        href: url,
+        x: rect.x, y: rect.y,
+        width: rect.w, height: rect.h,
+        preserveAspectRatio: 'none',
+        'pointer-events': 'none',
+      });
+      parent.appendChild(img);
+      // Transparent click overlay so panel is still clickable
+      const overlay = createEl('rect', {
+        x: rect.x, y: rect.y, width: rect.w, height: rect.h,
+        fill: 'transparent', cursor: 'pointer',
+        class: `bag-panel panel-${panelId}`, 'data-panel': panelId,
+      });
+      overlay.addEventListener('click', () => onPanelClick(panelId));
+      parent.appendChild(overlay);
+    }
   }
 }
 

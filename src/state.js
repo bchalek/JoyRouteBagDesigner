@@ -28,6 +28,10 @@ export const state = {
   panelData: {
     front: null, back: null, left: null, right: null, top: null,
   },
+  // Low-res JPEG data URLs for flat view preview overlay
+  panelPreviews: {
+    front: null, back: null, left: null, right: null, top: null,
+  },
   zoom: 1,
   panX: 0,
   panY: 0,

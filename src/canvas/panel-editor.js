@@ -99,6 +99,9 @@ export function saveCurrentPanel() {
   if (!canvas) return;
   const json = canvas.toJSON(['id', 'name', 'locked']);
   set({ panelData: { [state.activePanel]: json } });
+  // Low-res JPEG preview for flat view overlay
+  const preview = canvas.toDataURL({ format: 'jpeg', quality: 0.8, multiplier: 0.5 });
+  set({ panelPreviews: { [state.activePanel]: preview } });
 }
 
 // ─── History ──────────────────────────────────────────────────────────────────

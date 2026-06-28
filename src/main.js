@@ -136,6 +136,7 @@ function bindViewToggle() {
   document.querySelectorAll('[data-view]').forEach(btn => {
     btn.addEventListener('click', () => {
       const v = btn.dataset.view;
+      if (state.view === 'panels') saveCurrentPanel();
       document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       set({ view: v });
